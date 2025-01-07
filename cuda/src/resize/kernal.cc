@@ -1,18 +1,59 @@
 #include "resize.h"
 #include "cudatools.h"
+#include <opencv2/opencv.hpp>
+#include <vector>
 
-void warpaffine_kernel(
-    uint8_t* src,
-    int src_line_size,
-    int src_width,
-    int src_height,
-    float* dst,
-    int dst_width,
-    int dst_height,
-    uint8_t const_value_st,
-    AffineMatrix d2s,
-    int edge
+void warpaffine_opencv(
+    uint8_t* src_data,          // 输入图像数据（BGR 格式）
+    int src_width,              
+    int src_height,             
+    float* dst_data,            // 输出图像数据（RGB 格式，归一化到 [0, 1]）
+    int dst_width,              
+    int dst_height,             
+    uint8_t const_value_st,     // 超出边界的填充值
+    AffineMatrix d2s            // 仿射变换矩阵（6 个 float 值）
 ) {
+    // 将输入数据转换为 OpenCV Mat
+    cv::Mat src(src_height, src_width, CV_8UC3, src_data);
+
+    // 定义仿射变换矩阵
+    cv::Mat affine_matrix(2,3,CV_32F,d2s.value);
+
+    // 定义输出图像尺寸
+    cv::Size dst_size(dst_width, dst_height);
+
+    // 应用仿射变换(使用双线性插值）
+    cv::Mat dst;
+    cv::warpAffine(src, dst, affine_matrix, dst_size, cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar(const_value_st, const_value_st, const_value_st));
+
+    // 将 BGR 转换为 RGB
+    cv::cvtColor(dst, dst, cv::COLOR_BGR2RGB);
+
+    // 归一化到 [0, 1] 范围
+    dst.convertTo(dst, CV_32F, 1.0 / 255.0);
+
+    // 将输出数据按通道分离存储（rrrgggbbb 格式）
+    int area = dst_width * dst_height;
+    std::vector<cv::Mat> channels(3);
+    cv::split(dst, channels);
+
+    for (int i = 0; i < 3; i++) {
+        std::memcpy(dst_data + i * area, channels[i].data, area * sizeof(float));
+    }
+}
+
+// void warpaffine_kernel(
+//     uint8_t* src,
+//     int src_line_size,
+//     int src_width,
+//     int src_height,
+//     float* dst,
+//     int dst_width,
+//     int dst_height,
+//     uint8_t const_value_st,
+//     AffineMatrix d2s,
+//     int edge        //目标图像的总像素数
+// ) {
     //int position = blockDim.x * blockIdx.x + threadIdx.x;
     //if (position >= edge)
     //    return;
@@ -92,4 +133,4 @@ void warpaffine_kernel(
     //*pdst_c0 = c0;
     //*pdst_c1 = c1;
     //*pdst_c2 = c2;
-}
+//}

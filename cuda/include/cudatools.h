@@ -1,7 +1,7 @@
 #ifndef __OPENRM_CUDA_TOOLS_H__
 #define __OPENRM_CUDA_TOOLS_H__
 #include <cstdint>
-
+#include <opencv2/opencv.hpp>
 namespace rm {
 
 void resize(
@@ -10,8 +10,8 @@ void resize(
     int src_height,
     float* dst,
     int dst_width,
-    int dst_height,
-    void* cuda_stream
+    int dst_height
+    // void* cuda_stream
 );
 
 }
